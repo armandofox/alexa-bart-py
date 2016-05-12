@@ -1,0 +1,9 @@
+{
+  "intents": [
+    { "intent": "NextTrainIntent",
+      "slots": [{ "name": "Station", "type": "LIST_OF_STATIONS" }] },
+    { "intent": "AMAZON.StopIntent" },
+    { "intent": "AMAZON.CancelIntent" }
+  ]
+}
+
