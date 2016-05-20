@@ -1,3 +1,8 @@
 NextTrainIntent when is the next train to {Station}
 NextTrainIntent when are the next trains to {Station}
 NextTrainIntent what are the next trains to {Station}
+
+DelaysIntent are there any BART delays
+DelaysIntent if there are any delays
+DelaysIntent about delays
+DelaysIntent delays

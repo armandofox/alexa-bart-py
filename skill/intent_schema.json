@@ -2,6 +2,7 @@
   "intents": [
     { "intent": "NextTrainIntent",
       "slots": [{ "name": "Station", "type": "LIST_OF_STATIONS" }] },
+    { "intent": "DelaysIntent" },
     { "intent": "AMAZON.StopIntent" },
     { "intent": "AMAZON.CancelIntent" }
   ]

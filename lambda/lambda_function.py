@@ -5,17 +5,19 @@ Happy Hacking!
 """
 
 from ask import alexa
+from bart_trip import BartTrip
+from station_codes import station_code
+import datetime
+
+API_KEY = 'MW9S-E7SL-26DU-VV8V'
+ORIGIN = 'GLEN'
 
 def lambda_handler(request_obj, context=None):
     '''
-    This is the main function to enter to enter into this code.
-    If you are hosting this code on AWS Lambda, this should be the entry point.
-    Otherwise your server can hit this code as long as you remember that the
     input 'request_obj' is JSON request converted into a nested python object.
     '''
 
     metadata = {}
-    
     return alexa.route_request(request_obj, metadata)
 
 
@@ -27,28 +29,84 @@ def default_handler(request):
 
 @alexa.request_handler("LaunchRequest")
 def launch_request_handler(request):
-    return alexa.create_response(message="Hello Welcome to My Recipes!")
+    return alexa.create_response(message="PogoBart launched")
 
 
 @alexa.request_handler("SessionEndedRequest")
 def session_ended_request_handler(request):
-    return alexa.create_response(message="Goodbye!")
+    return alexa.create_response(message="PogoBart signoff")
 
 
 @alexa.intent_handler("NextTrainIntent")
 def next_train_intent_handler(request):
-    """
-    You can insert arbitrary business logic code here    
-    """
-
     # Get variables like userId, slots, intent name etc from the 'Request' object
     station = request.slots["Station"] 
     if station == None:
         return alexa.create_response("Please specify a station name.")
+    result = get_trips(station)
+    if result.error:
+        card = alexa.create_card(title = "NextTrainIntent error", subtitle=None,
+                                 content = result.error)
+        return alexa.create_response("Sorry. {}".format(result.error), end_session=True, card_obj=card)
+    else:
+        card = alexa.create_card(title="NextTrainIntent activated", subtitle=None,
+                                 content="asked Alexa for next trains to {}: {}".format(station, ", ".join(result.trips)))
+        speak = format_trips(station, result)
+        return alexa.create_response(speak, end_session=True, card_obj=card)
 
-    card = alexa.create_card(title="NextTrainIntent activated", subtitle=None,
-                             content="asked Alexa for next train to {}".format(station))
+@alexa.intent_handler("DelaysIntent")
+def delays_intent_handler(request):
+    delays = BartTrip(API_KEY)
+    result = "DelaysIntent activated"
+    if delays.error:
+        speak = "Sorry. {}".format(delays.error)
+        result = "DelaysIntent error"
+    elif delays.delays:
+        speak = delays.delays
+    else:
+        speak = "No delays reported."
+    card = alexa.create_card(title = result, subtitle=None, content=speak)
+    return alexa.create_response(speak,end_session=True,card_obj=card)
+    
+def format_trips(station,result):
+    trips = result.trips
+    s = "The next {} trains to {} depart at ".format(len(trips),station)
+    trips[-1] = "and {}".format(trips[-1])
+    s += ", ".join(trips)
+    # delays?
+    if result.delays:
+        s += ". But " + result.delays + "."
+    else:
+        s += ", with no delays reported."
+    return s
 
-    return alexa.create_response("Looking up next train(s) to {}".format(station),
-                                 end_session=False, card_obj=card)
+'''
+def format_trips(station,trips):
+    s = "The next {} trains to {} depart in ".format(len(trips),station)
+    times = map(minutes_from_now, trips)
+    times_spoken = map(lambda t: "{} minutes".format(t), times)
+    times_spoken[-1] = "and {}".format(times_spoken[-1])
+    s += ", ".join(times_spoken)
+    return s
+'''
+def minutes_from_now(time_as_str):
+    now = datetime.datetime.now()
+    now = now.replace(year=1900,month=1,day=1)
+    time = datetime.datetime.strptime(time_as_str, '%I:%M %p')
+    # if time given is between midnight and 3 am, but current time
+    # is EARLIER than midnight, make 'now' be the next day so time
+    # arithmetic works out
+    if (time.hour <= 3 and now.hour <= 3):
+        now = now.replace(day=2)
+    return ((time - now).seconds) / 60
+
+def get_trips(station):
+    bart = BartTrip(API_KEY)
+    dest = station_code(station)
+    if dest == None:
+        bart.error = "I don't recognize the station name {}".format(station)
+    else:
+        bart.get_trips(ORIGIN, dest)
+    return bart
+
 
