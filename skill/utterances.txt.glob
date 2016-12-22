@@ -1,0 +1,6 @@
+ArriveTimeIntent what (train|trains) (gets me to|arrives|arrives at|gets to|will arrive) (at|) {Destination} (by|at) {Time}
+
+NextTrainIntent (when|what) (is|are) the next (train|trains) to {Station}
+
+DelaysIntent (is|are) there any (BART|) (delay|delays)
+DelaysIntent (about|) delays

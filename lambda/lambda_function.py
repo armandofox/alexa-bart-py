@@ -8,6 +8,7 @@ from ask import alexa
 from bart_trip import BartTrip
 from station_codes import station_code
 import datetime
+from time import strftime
 
 API_KEY = 'MW9S-E7SL-26DU-VV8V'
 ORIGIN = 'GLEN'
@@ -42,17 +43,19 @@ def next_train_intent_handler(request):
     # Get variables like userId, slots, intent name etc from the 'Request' object
     station = request.slots["Station"] 
     if station == None:
-        return alexa.create_response("Please specify a station name.")
-    result = get_trips(station)
-    if result.error:
-        card = alexa.create_card(title = "NextTrainIntent error", subtitle=None,
-                                 content = result.error)
-        return alexa.create_response("Sorry. {}".format(result.error), end_session=True, card_obj=card)
-    else:
-        card = alexa.create_card(title="NextTrainIntent activated", subtitle=None,
-                                 content="asked Alexa for next trains to {}: {}".format(station, ", ".join(result.trips)))
-        speak = format_trips(station, result)
-        return alexa.create_response(speak, end_session=True, card_obj=card)
+        return alexa.create_response("Please try again, giving the destination station name.")
+    result = get_trips(station, 'depart')
+    return deliver_result(station,result)
+
+@alexa.intent_handler("ArriveTimeIntent")
+def arrive_intent_handler(request):
+    station = request.slots["Destination"]
+    arrive_time = request.slots["Time"]
+    if (station == None or arrive_time == None):
+        return alexa.create_response("Please try again, giving the destination station and arrival time.")
+    result = get_trips(station, 'arrive', arrive_time)
+    return deliver_result(station,result)
+
 
 @alexa.intent_handler("DelaysIntent")
 def delays_intent_handler(request):
@@ -68,9 +71,23 @@ def delays_intent_handler(request):
     card = alexa.create_card(title = result, subtitle=None, content=speak)
     return alexa.create_response(speak,end_session=True,card_obj=card)
     
+def deliver_result(station,result):
+    if result.error:
+        card = alexa.create_card(title = "NextTrainIntent error", subtitle=None,
+                                 content = result.error)
+        return alexa.create_response("Sorry. {}".format(result.error), end_session=True, card_obj=card)
+    else:
+        card = alexa.create_card(title="NextTrainIntent activated", subtitle=None,
+                                 content="asked Alexa for trains to {}".format(station))
+        speak = format_trips(station, result)
+        return alexa.create_response(speak, end_session=True, card_obj=card)
+
 def format_trips(station,result):
     trips = result.trips
-    s = "The next {} trains to {} depart at ".format(len(trips),station)
+    if result.cmd == 'arrive':
+        s = "To arrive at {} by {}, you can depart at ".format(station, strftime('%-I %M %p', result.time))
+    else:
+        s = "The next {} trains to {} depart at ".format(len(trips),station)
     trips[-1] = "and {}".format(trips[-1])
     s += ", ".join(trips)
     # delays?
@@ -100,13 +117,13 @@ def minutes_from_now(time_as_str):
         now = now.replace(day=2)
     return ((time - now).seconds) / 60
 
-def get_trips(station):
+def get_trips(station,cmd,time=None):
     bart = BartTrip(API_KEY)
     dest = station_code(station)
     if dest == None:
         bart.error = "I don't recognize the station name {}".format(station)
     else:
-        bart.get_trips(ORIGIN, dest)
+        bart.get_trips(ORIGIN, dest, cmd, time)
     return bart
 
 

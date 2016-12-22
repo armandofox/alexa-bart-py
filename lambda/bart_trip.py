@@ -2,6 +2,7 @@ import urllib
 import urllib2
 import re
 from xml.dom import minidom
+from time import strftime,strptime
 
 class BartTrip(object):
 
@@ -14,15 +15,17 @@ class BartTrip(object):
         self.error = None
         self.trips = None
         self.delays = None
+        self.time = None
 
-    def get_trips(self,orig,dest):
-        body = self.retrieve_schedule(orig,dest)
-        '''
-        Schema: j.root.schedule.request.trip is an array of trip objects
-            Within a trip object t, t.attr['origTimeMin'] looks like "6:14 PM", t.leg is array of legs
-            (first leg in the XML usually seems to be first trip leg, but there s also a l.order elt)
-           Within a leg l, l.trainHeadStation is station code where that train is headed, eg PITT
-        '''
+    def get_trips(self,orig,dest,cmd,time=None):
+        self.cmd = cmd
+        self.origin = orig
+        self.destination = dest
+        if time==None:
+            self.time = None
+        else:
+            self.time = strptime(time, '%H:%M')
+        body = self.retrieve_schedule()
         self.parse_response()
         self.get_delays()
 
@@ -31,15 +34,19 @@ class BartTrip(object):
         trips = dom.getElementsByTagName('trip')
         self.trips = map(lambda trip: trip.getAttribute('origTimeMin'), trips)
 
-    def retrieve_schedule(self,orig,dest):
+    def retrieve_schedule(self):
         params = {
-            'cmd': 'depart',
-            'b': '0',
-            'a': '3',
-            'orig': orig,
-            'dest': dest,
+            'cmd': self.cmd,
+            'b': ('2' if self.cmd == 'arrive' else '0'),
+            'a': ('0' if self.cmd == 'arrive' else '3'),
+            'orig': self.origin,
+            'dest': self.destination,
             'key': self.key
         }
+
+        if not self.time == None:
+            params['time'] = strftime('%-I:%M%p', self.time)
+
         url = '{}/sched.aspx?{}'.format(self.ENDPOINT, urllib.urlencode(params))
         try:
             self.body = urllib2.urlopen(url).read()
